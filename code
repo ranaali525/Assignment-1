@@ -1,0 +1,20 @@
+#importing modules
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+%matplotlib inline
+#nationality of people
+dataSet = pd.read_csv('Food_Preference.csv')
+nationality=dataSet['Nationality']
+nationality.index=nationality.index.astype(int)
+plt.hist(nationality, label="Nationality", density=True, rwidth=0.7)
+plt.xticks(nationality, label='Nationality', rotation='vertical')
+plt.legend()
+#mean age of people
+meanAge=dataSet['Age'].mean()
+meanAge
+#food preference
+age=dataSet['Age']
+food_pref=dataSet['Food']
+plt.plot(food_pref,age)
+plt.show()
