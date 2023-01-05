@@ -1,0 +1,46 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+#importing data in pandas datafrmae
+df = pd.read_csv('Coffee_production.csv')
+df
+#Data transpose and preparing 
+df_2 = df.transpose()
+df_2.columns = df_2.iloc[0]
+df_2.iloc[1:]
+df_2 = df_2.reset_index()
+df_2 = df_2.drop([0,1,32])
+final_data = df_2.rename(columns={'index': 'Year'})
+#this line will display first five years data of all countries
+df_3 = final_data.head()
+df_3
+def plot_lines(df, column_names,xl,yl):
+    ## this function will take values and display line plot
+  for column in column_names:
+    plt.plot(df['Year'], df[column], label=column)
+    plt.xlabel(xl)
+    plt.ylabel(yl)
+    plt.legend()
+    plt.show()
+    
+def plot_pie(data, labels, title):
+    ## This function will produce pie plot taking parameters from dataframe
+    plt.pie(data, labels=labels, autopct='%1.1f%%')
+    plt.title(title)
+    plt.axis('equal')
+    plt.show()
+def plot_bar(data, labels,title):
+    ## This function will produce bar plot by taking parameters 
+    plt.bar(labels, data)
+    plt.xticks(range(len(labels)), labels, rotation=90)
+    plt.title(title)
+    plt.show()
+#Call and pass parameters into functions
+#Line plot
+plot_lines(df_3, ['India', 'Brazil', 'Indonesia','Malawi','Thailand'],'Year','Coffee Production')
+#Pie PLot
+top_5_values = df.sort_values(by='Total_production', ascending=False).head(5)
+top_5_values
+plot_pie(top_5_values['Total_production'], top_5_values['Country'], 'Top 5 Coffee Production Countries')
+#Bar Plot
+plot_bar(final_data['Brazil'],final_data['Year'],'Displaying Coffee Production of Brazil Between 1990-2020')
