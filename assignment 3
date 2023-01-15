@@ -1,0 +1,253 @@
+#importing libararies
+import numpy as np
+import pandas as pd
+import scipy.optimize as opt
+import itertools as iter
+import sklearn.cluster as cluster
+import matplotlib.pyplot as plt
+%matplotlib inline
+#function that takes and return dataframes
+def data_frames():
+
+    """
+    This function is to read in files in the Worldbank 
+    format returning original and transposed 
+    format. df_1 contains the orginal data frame, while the df_2 contains the transposed dataframe.
+
+    """ 
+    
+    df_1 = pd.read_csv('urban_pop.csv')
+    #df_2 = pd.read_csv('climate_change.csv', skiprows=3)
+    df_2 = df_1.transpose()
+    df_2.columns = df_2.iloc[0]
+    return df_1, df_2.iloc[1:]
+
+dataframe_1, dataframe_2 = data_frames()
+display(dataframe_1)
+display(dataframe_2)
+#working on normalizing the data
+def norm(dataframe):
+    """ Returns the normalized dataframe"""
+
+    min_val = np.min(dataframe)
+    max_val = np.max(dataframe)
+    
+    scaled = (dataframe-min_val) / (max_val-min_val)
+    
+    return scaled
+
+
+def norm_df(df):
+    """ 
+    Returns all columns of the dataframe normalised to [0,1] with the 
+    exception of first (containing the time)
+    Calls function norm to do the normalisation of one column, but
+    doing all in one function is also fine. 
+    """
+    
+    # iterate over all columns
+    for col in df.columns[1:8]:     # excluding the first columns
+        df[col] = norm(df[col])
+    return df
+    #read and normalize the data
+df_world = norm_df(dataframe_1)
+print(df_world.describe())
+print(df_world)
+plt.plot(df_world.describe())
+plt.title("Overall Statistics of Nomalized Values")
+plt.show()
+#clustring the data using the Aggolomorative Clustring method
+ac = cluster.AgglomerativeClustering(n_clusters=6)
+
+# taking the columns form original dataframe for fitting
+df_fit = df_world[["World [WLD]","Time"]].copy()
+df_fit = pd.DataFrame(df_fit)
+df_fit = df_fit.fillna(0)
+ac.fit(df_fit)
+
+labels = ac.labels_
+
+# The clusterer does not return cluster centres, but they are easily computed
+xcen = []
+ycen = []
+for ic in range(6):
+    xc = np.average(df_fit["Time"][labels==ic])
+    yc = np.average(df_fit["World [WLD]"][labels==ic])
+    xcen.append(xc)
+    ycen.append(yc)
+
+# plot using the labels to select colour
+plt.figure(figsize=(8.0,8.0))
+
+col = ["blue", "red", "green", "yellow", "black", "magenta"]
+for l in range(0,6):     # loop over the different labels
+    plt.plot(df_fit["Time"][labels==l], df_fit["World [WLD]"][labels==l], "*", markersize=8, color=col[l])
+    
+# show cluster centres
+for ic in range(6):
+    plt.plot(xcen[ic], ycen[ic], "Xk", markersize=8) 
+    
+plt.xlabel("Time")
+plt.ylabel("World [WLD]")
+plt.title("Data Clustring of Urban Population of World")
+plt.show()
+#now fitting the data using curve_fit and creating models
+def exp_growth(t, scale, growth):
+    """ Computes exponential function with scale and growth as free parameters
+    """
+    f = scale * np.exp(growth * (t-1960)) 
+    
+    return f   
+
+def logistics(t, scale, growth, t0):
+    """ Computes logistics function with scale, growth raat
+    and time of the turning point as free parameters
+    """
+    f = scale / (1.0 + np.exp(-growth * (t - t0)))
+    
+    return f
+df_fit_2 = pd.DataFrame(dataframe_1)
+df_fit_2 = df_fit_2.fillna(0)
+popt, covar = opt.curve_fit(exp_growth, df_fit_2["Time"], df_fit_2["World [WLD]"])
+#plotting the result
+print("Fit parameter", popt)
+
+# use *popt to pass on the fit parameters
+df_fit_2["pop_exp"] = exp_growth(df_fit_2["Time"], *popt)
+
+plt.figure()
+plt.plot(df_fit_2["Time"], df_fit_2["World [WLD]"], label="data")
+plt.plot(df_fit_2["Time"], df_fit_2["pop_exp"], label="fit")
+
+plt.legend()
+plt.title("First fit attempt")
+plt.xlabel("Time")
+plt.ylabel("World Population")
+plt.show()
+print()
+#improved value
+popt = [4e8, 0.01]
+df_fit_2["pop_exp"] = exp_growth(df_fit_2["Time"], *popt)
+
+plt.figure()
+plt.plot(df_fit_2["Time"], df_fit_2["World [WLD]"], label="data")
+plt.plot(df_fit_2["Time"], df_fit_2["pop_exp"], label="fit")
+
+plt.legend()
+plt.xlabel("Time")
+plt.ylabel("World Population")
+plt.title("Improved start value")
+plt.show()
+# Final fit exponential growth
+popt, covar = opt.curve_fit(exp_growth, df_fit_2["Time"], 
+                            df_fit_2["World [WLD]"], p0=[4e8, 0.02])
+# much better
+print("Fit parameter", popt)
+
+df_fit_2["pop_exp"] = exp_growth(df_fit_2["Time"], *popt)
+
+plt.figure()
+plt.plot(df_fit_2["Time"], df_fit_2["World [WLD]"], label="data")
+plt.plot(df_fit_2["Time"], df_fit_2["pop_exp"], label="fit")
+
+plt.legend()
+plt.xlabel("Time")
+plt.ylabel("World Population")
+plt.title("Final fit exponential growth")
+plt.show()
+print()
+#calculate logistics function
+popt = [8e8, 0.02, 1995]
+df_fit_2["pop_log"] = logistics(df_fit_2["Time"], *popt)
+
+plt.figure()
+plt.plot(df_fit_2["Time"], df_fit_2["World [WLD]"], label="data")
+plt.plot(df_fit_2["Time"], df_fit_2["pop_log"], label="fit")
+
+plt.legend()
+plt.xlabel("Time")
+plt.ylabel("World Population")
+plt.title("Improved start value")
+plt.show()
+popt, covar = opt.curve_fit(logistics, df_fit_2["Time"], df_fit_2["World [WLD]"], 
+                            p0=(2e9, 0.05, 1995.0))
+print("Fit parameter", popt)
+      
+df_fit_2["pop_log"] = logistics(df_fit_2["Time"], *popt)
+
+plt.figure()
+plt.title("logistics function")
+plt.plot(df_fit_2["Time"], df_fit_2["World [WLD]"], label="data")
+plt.plot(df_fit_2["Time"], df_fit_2["pop_log"], label="fit")
+
+plt.legend()
+plt.xlabel("Time")
+plt.ylabel("World Population")
+plt.show()
+#function to return upper and lower limit of error range
+def err_ranges(x, func, param, sigma):
+    """
+    Calculates the upper and lower limits for the function, parameters and
+    sigmas for single value or dataframe. Functions values are calculated for 
+    all combinations of +/- sigma and the minimum and maximum is determined.
+    Can be used for all number of parameters and sigmas >=1.
+    """
+    
+    # initiate arrays for lower and upper limits
+    lower = func(x, *param)
+    upper = lower
+    
+    uplow = []   # list to hold upper and lower limits for parameters
+    for p,s in zip(param, sigma):
+        pmin = p - s
+        pmax = p + s
+        uplow.append((pmin, pmax))
+        
+    pmix = list(iter.product(*uplow))
+    
+    for p in pmix:
+        y = func(x, *p)
+        lower = np.minimum(lower, y)
+        upper = np.maximum(upper, y)
+        
+    return lower, upper   
+# extract the sigmas from the diagonal of the covariance matrix
+sigma = np.sqrt(np.diag(covar))
+print(sigma)
+
+low, up = err_ranges(df_fit_2["Time"], logistics, popt, sigma)
+
+plt.figure()
+plt.title("logistics function")
+plt.plot(df_fit_2["Time"], df_fit_2["World [WLD]"], label="data")
+plt.plot(df_fit_2["Time"], df_fit_2["pop_log"], label="fit")
+
+plt.fill_between(df_fit_2["Time"], low, up, alpha=0.7)
+plt.legend()
+plt.xlabel("Time")
+plt.ylabel("World Population")
+plt.show()
+#ranges
+print("Forcasted population")
+low, up = err_ranges(2030, logistics, popt, sigma)
+print("2030 between ", low, "and", up)
+low, up = err_ranges(2040, logistics, popt, sigma)
+print("2040 between ", low, "and", up)
+low, up = err_ranges(2050, logistics, popt, sigma)
+print("2050 between ", low, "and", up)
+#future predicted values
+print("Forcasted population")
+low, up = err_ranges(2030, logistics, popt, sigma)
+mean = (up+low) / 2.0
+pm = (up-low) / 2.0
+print("2030:", mean, "+/-", pm)
+
+low, up = err_ranges(2040, logistics, popt, sigma)
+mean = (up+low) / 2.0
+pm = (up-low) / 2.0
+print("2040:", mean, "+/-", pm)
+
+low, up = err_ranges(2050, logistics, popt, sigma)
+mean = (up+low) / 2.0
+pm = (up-low) / 2.0
+print("2050:", mean, "+/-", pm)
